@@ -1,9 +1,15 @@
-# Ігнорувати кеш Python
-__pycache__/
-*.pyc
-
-# Ігнорувати віртуальне середовище (якщо будеш створювати)
-venv/
+# Секретні ключі
 .env
 
+# Локальні файли та бекапи
 movies.json
+movies.json.bak
+poster.jpg
+movies.csv
+
+
+# Системне та Python
+__pycache__/
+*.pyc
+venv/
+.DS_Store
