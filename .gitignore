@@ -2,7 +2,6 @@
 .env
 
 # Локальні файли та бекапи
-movies.json
 movies.json.bak
 poster.jpg
 movies.csv
