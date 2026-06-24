@@ -6,7 +6,7 @@ import io
 import shutil
 import csv
 
-from PIL import Image
+from PIL import Image, ImageOps
 from dotenv import load_dotenv
 
 # Завантажуємо змінні з .env
@@ -285,11 +285,18 @@ def sort_movies(movies):
         print(f"{m['name'][:24]:<25} | {m_type:<8} | {m['rating']:.1f}")
 
 def show_poster(image_path):
+    """Відображає постер зі збереженням пропорцій (без розтягування)."""
     os.system('cls' if os.name == 'nt' else 'clear')
     
     ASCII_CHARS = ["@", "#", "S", "%", "?", "*", "+", ";", ":", ",", "."]
+    FIXED_WIDTH = 80 
     
     try:
+        if not image_path or image_path == "None":
+            print("Постер відсутній.")
+            input("\nНатисніть Enter, щоб продовжити...")
+            return
+
         if image_path.startswith("http"):
             response = requests.get(image_path, timeout=10)
             response.raise_for_status()
@@ -297,37 +304,34 @@ def show_poster(image_path):
         else:
             if not os.path.exists(image_path):
                 print("Помилка: файл постера не знайдено.")
+                input("\nНатисніть Enter, щоб продовжити...")
                 return
             img = Image.open(image_path)
         
-        # ОСНОВНА ЗМІНА ТУТ:
-        # Зменшуємо new_width до 80 (або навіть 60 для кращого результату)
-        new_width = 80 
-        
+        # Логіка без розтягування:
         width, height = img.size
+        # Розраховуємо висоту на основі пропорцій оригіналу
+        # 0.55 - це коригування для висоти символів у консолі
         aspect_ratio = height / width
-        # 0.55 - це коефіцієнт для компенсації висоти символів шрифту
-        new_height = int(aspect_ratio * new_width * 0.55)
+        new_height = int(aspect_ratio * FIXED_WIDTH * 0.55)
         
-        img = img.resize((new_width, new_height))
+        # Використовуємо LANCZOS для чіткого зменшення
+        img = img.resize((FIXED_WIDTH, new_height), Image.Resampling.LANCZOS)
         img = img.convert("RGB")
         
         pixels = img.getdata()
         
         for i, pixel in enumerate(pixels):
             r, g, b = pixel
-            # Розрахунок яскравості
             brightness = (r + g + b) // 3
-            char = ASCII_CHARS[min(brightness // 25, len(ASCII_CHARS)-1)]
+            char = ASCII_CHARS[min(brightness // 25, len(ASCII_CHARS) - 1)]
             
-            # Вивід кольорового ASCII
             print(f"\033[38;2;{r};{g};{b}m{char}", end="")
             
-            # Перенос рядка після завершення ширини
-            if (i + 1) % new_width == 0:
+            if (i + 1) % FIXED_WIDTH == 0:
                 print("\033[0m")
                 
-        print("\033[0m") # Скидання кольору в кінці
+        print("\033[0m")
         input("\nНатисніть Enter, щоб повернутися в меню...")
                 
     except Exception as e:
@@ -364,7 +368,7 @@ def export_to_csv():
         print(f"{RED}Помилка при експорті: {e}{RESET}")
 
 def check_links(movies):
-    """Перевіряє доступність посилань на трейлери."""
+    """Перевіряє доступність посилань на трейлери з правильними заголовками."""
     if not movies:
         print("Каталог порожній.")
         return
@@ -372,17 +376,25 @@ def check_links(movies):
     print(f"\n{RED}--- Перевірка посилань на трейлери ---{RESET}")
     found_broken = False
     
+    # Заголовки, щоб YouTube не блокував запит
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    }
+    
     for m in movies:
         trailers = m.get('trailers', {})
         for lang, url in trailers.items():
             if url:
                 try:
-                    # Надсилаємо запит до сайту
-                    response = requests.head(url, timeout=5)
-                    if response.status_code != 200:
-                        print(f"{RED}Бите посилання ({lang.upper()}) у фільмі '{m['name']}': {url}{RESET}")
+                    # Додаємо headers=headers у запит
+                    response = requests.head(url, headers=headers, timeout=5)
+                    
+                    # YouTube може повертати 405 (Method Not Allowed) для HEAD, 
+                    # тому краще перевіряти статус < 400
+                    if response.status_code >= 400:
+                        print(f"{RED}Бите посилання ({lang.upper()}) у фільмі '{m['name']}': {url} (Код: {response.status_code}){RESET}")
                         found_broken = True
-                except Exception:
+                except Exception as e:
                     print(f"{RED}Помилка підключення ({lang.upper()}) у фільмі '{m['name']}': {url}{RESET}")
                     found_broken = True
     
@@ -474,11 +486,10 @@ def main():
         "6": lambda: show_stats(movies),
         "7": lambda: filter_movies(movies),
         "8": lambda: sort_movies(movies),
-        "9": lambda: show_poster("poster.jpg"),
-        "10": export_to_csv,
-        "11": lambda: check_links(movies),
-        "12": lambda: add_movie_by_api(movies),  # Додано функцію API
-        "13": lambda: search_by_year_range(movies)
+        "9": export_to_csv,
+        "10": lambda: check_links(movies),
+        "11": lambda: add_movie_by_api(movies),
+        "12": lambda: search_by_year_range(movies)
     }
     
     while True:
@@ -492,11 +503,10 @@ def main():
         print(f"{PURPLE}[6]{RESET}  Показати статистику фільмів/серіалів")
         print(f"{PURPLE}[7]{RESET}  Фільтрація (жанр/статус)")
         print(f"{PURPLE}[8]{RESET}  Сортувати за рейтингом")
-        print(f"{PURPLE}[9]{RESET}  Тест постера")
-        print(f"{PURPLE}[10]{RESET} Експорт в CSV")
-        print(f"{PURPLE}[11]{RESET} Перевірка посилань")
-        print(f"{PURPLE}[12]{RESET} Додати фільм/серіал через API")
-        print(f"{PURPLE}[13]{RESET} Пошук фільмів/серіалів за роками")
+        print(f"{PURPLE}[9]{RESET}  Експорт в CSV")
+        print(f"{PURPLE}[10]{RESET} Перевірка посилань")
+        print(f"{PURPLE}[11]{RESET} Додати фільм/серіал через API")
+        print(f"{PURPLE}[12]{RESET} Пошук фільмів/серіалів за роками")
         print(f"{PURPLE}[0]{RESET}  Вихід")
         
         choice = input(f"\n{RED}Обери дію: {RESET}")
