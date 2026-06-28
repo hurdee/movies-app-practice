@@ -27,11 +27,20 @@ FILE_NAME = "movies.json"
 # ── Робота з файлами ──────────────────────────────────────────
 
 def load_data():
-    """Завантажує записи з JSON-файлу."""
     if not os.path.exists(FILE_NAME):
         return []
-    with open(FILE_NAME, "r", encoding="utf-8") as f:
-        return json.load(f)
+
+    try:
+        with open(FILE_NAME, "r", encoding="utf-8") as f:
+            return json.load(f)
+
+    except json.JSONDecodeError:
+        print("Помилка: файл бази даних пошкоджений.")
+        return []
+
+    except Exception as e:
+        print(f"Помилка завантаження: {e}")
+        return []
 
 def save_data(data):
     """Зберігає записи у JSON-файл з резервною копією."""
@@ -92,79 +101,139 @@ def delete_movie(movies):
     if not movies:
         print(f"{RED}Список порожній!{RESET}")
         return
-    
+
     print("\n--- ВИДАЛЕННЯ ---")
     print("[1] Видалити за номером")
     print("[2] Видалити за назвою")
+
     choice = input("Обери спосіб: ")
-    
+
     if choice == '1':
-        # ВИВОДИМО СПИСОК З ТИПОМ
         print("\n№ | Тип      | Назва")
         print("-" * 40)
+
         for i, m in enumerate(movies):
-            m_type = m.get('type', 'Фільм')
-            print(f"{i+1:<2} | {m_type:<8} | {m['name']}")
-        
-        num = input("\nВведіть номер для видалення: ")
+            print(
+                f"{i + 1:<2} | "
+                f"{m.get('type', 'Фільм'):<8} | "
+                f"{m['name']}"
+            )
+
+        num = input("\nВведіть номер: ")
+
         if num.isdigit():
             idx = int(num) - 1
+
             if 0 <= idx < len(movies):
                 removed = movies.pop(idx)
                 save_data(movies)
-                print(f"{RED}'{removed['name']}' видалено.{RESET}")
+                print(f"'{removed['name']}' видалено.")
             else:
                 print("Невірний номер.")
-                
-    elif choice == '2':
-        name = input("Введіть назву для видалення: ")
-        # Видаляємо записи, назва яких збігається
-        filtered_movies = [m for m in movies if name.lower() not in m['name'].lower()]
-        if len(filtered_movies) < len(movies):
-            movies[:] = filtered_movies
-            save_data(movies)
-            print(f"{RED}Видалено.{RESET}")
         else:
-            print("Не знайдено.")
+            print("Введіть число.")
+
+    elif choice == '2':
+        name = input("Введіть назву: ").lower()
+
+        for i, movie in enumerate(movies):
+            if movie['name'].lower() == name:
+                removed = movies.pop(i)
+                save_data(movies)
+                print(f"'{removed['name']}' видалено.")
+                return
+
+        print("Не знайдено.")
+
+    else:
+        print("Невірний вибір.")
 
 def edit_movie(movies):
-    """Редагування фільму/серіалу з перевіркою, щоб назва була унікальною."""
-    name = input("Назва фільму або серіалу для редагування: ")
+    name = input(
+        "Назва фільму або серіалу для редагування: "
+    )
+
     for m in movies:
         if m['name'].lower() == name.lower():
-            # Редагування типу
-            m['type'] = input(f"Новий тип (Фільм/Серіал) [{m.get('type', 'Фільм')}]: ") or m.get('type', 'Фільм')
-            
-            # Отримуємо нову назву
-            new_name = input(f"Нова назва [{m['name']}]: ") or m['name']
-            
-            # Перевірка, чи нове ім'я вже існує в іншого запису
-            if new_name.lower() != m['name'].lower():
-                if any(other['name'].lower() == new_name.lower() for other in movies):
-                    print(f"Помилка: '{new_name}' вже існує в списку!")
+
+            new_type = input(
+                f"Новий тип [{m.get('type', 'Фільм')}]: "
+            )
+
+            if new_type:
+                m['type'] = new_type
+
+            new_name = input(
+                f"Нова назва [{m['name']}]: "
+            )
+
+            if new_name:
+
+                if any(
+                    movie['name'].lower() == new_name.lower()
+                    and movie != m
+                    for movie in movies
+                ):
+                    print("Така назва вже існує.")
                     return
-            
-            m['name'] = new_name
-            m['genre'] = input(f"Новий жанр [{m['genre']}]: ") or m['genre']
-            m['year'] = int(input(f"Новий рік [{m['year']}]: ") or m['year'])
-            
-            if 'trailers' not in m:
-                m['trailers'] = {"ua": "", "en": ""}
-                
-            m['trailers']['ua'] = input(f"Новий трейлер (UA) [{m['trailers']['ua']}]: ") or m['trailers']['ua']
-            m['trailers']['en'] = input(f"Новий трейлер (EN) [{m['trailers']['en']}]: ") or m['trailers']['en']
-            m['poster_url'] = input(f"Новий постер (URL) [{m.get('poster_url', '')}]: ") or m.get('poster_url', '')
-            m['description'] = input(f"Новий опис [{m.get('description', '')}]: ") or m.get('description', '')
-            
-            new_status = input(f"Переглянуто (так/ні) [{ 'так' if m['status'] else 'ні' }]: ").lower()
-            if new_status:
-                m['status'] = (new_status == 'так')
-                
-            m['rating'] = float(input(f"Нова оцінка [{m['rating']}]: ") or m['rating'])
-            
+
+                m['name'] = new_name
+
+            genre = input(
+                f"Новий жанр [{m['genre']}]: "
+            )
+
+            if genre:
+                m['genre'] = genre
+
+            try:
+                year = input(
+                    f"Новий рік [{m['year']}]: "
+                )
+
+                if year:
+                    year = int(year)
+
+                    if year < 1888 or year > 2100:
+                        print("Некоректний рік.")
+                        return
+
+                    m['year'] = year
+
+            except ValueError:
+                print("Рік повинен бути числом.")
+                return
+
+            status = input(
+                f"Переглянуто (так/ні): "
+            ).lower()
+
+            if status:
+                m['status'] = status == "так"
+
+            try:
+                rating = input(
+                    f"Нова оцінка [{m['rating']}]: "
+                )
+
+                if rating:
+                    rating = float(rating)
+
+                    if 0 <= rating <= 10:
+                        m['rating'] = rating
+                    else:
+                        print("Оцінка від 0 до 10.")
+                        return
+
+            except ValueError:
+                print("Оцінка повинна бути числом.")
+                return
+
             save_data(movies)
-            print("Оновлено!")
+
+            print("Оновлено.")
             return
+
     print("Не знайдено.")
 
 def list_movies(movies, filter_key=None, filter_val=None):
@@ -239,20 +308,29 @@ def search_movie(movies):
         print("Не знайдено.")
 
 def show_stats(movies):
-    """Показ статистики: кількість об'єктів та середньої оцінки."""
     if not movies:
         print("База даних порожня.")
         return
-        
-    avg = sum(m['rating'] for m in movies) / len(movies)
-    
-    # Підрахунок кількості за типами
-    movies_count = sum(1 for m in movies if m.get('type') == 'Фільм')
-    series_count = sum(1 for m in movies if m.get('type') == 'Серіал')
-    
-    print(f"\n--- СТАТИСТИКА ---")
+
+    watched = [m['rating'] for m in movies if m.get('status')]
+
+    avg = sum(watched) / len(watched) if watched else 0
+
+    movies_count = sum(
+        1 for m in movies
+        if m.get('type') == 'Фільм'
+    )
+
+    series_count = sum(
+        1 for m in movies
+        if m.get('type') == 'Серіал'
+    )
+
+    print("\n--- СТАТИСТИКА ---")
     print(f"Всього записів: {len(movies)}")
-    print(f"Фільмів: {movies_count} | Серіалів: {series_count}")
+    print(f"Фільмів: {movies_count}")
+    print(f"Серіалів: {series_count}")
+    print(f"Переглянуто: {len(watched)}")
     print(f"Середня оцінка: {avg:.2f}")
 
 def filter_movies(movies):
@@ -339,33 +417,53 @@ def show_poster(image_path):
         input("Натисніть Enter, щоб продовжити...")
 
 def export_to_csv():
-    """Експортує список фільмів/серіалів у файл movies.csv."""
     movies = load_data()
+
     if not movies:
-        print(f"{RED}Каталог порожній. Немає чого експортувати.{RESET}")
+        print("Каталог порожній.")
         return
-    
+
     try:
-        with open("movies.csv", "w", encoding="utf-8-sig", newline="") as f:
+        with open(
+            "movies.csv",
+            "w",
+            encoding="utf-8-sig",
+            newline=""
+        ) as f:
+
             writer = csv.writer(f, delimiter=';')
-            # Додано "Тип" у заголовок
-            writer.writerow(["Тип", "Назва", "Жанр", "Рік", "Оцінка", "Статус", "Опис", "Трейлер UA", "Трейлер EN"])
-            
+
+            writer.writerow([
+                "Тип",
+                "Назва",
+                "Жанр",
+                "Рік",
+                "Оцінка",
+                "Статус",
+                "Опис",
+                "Трейлер UA",
+                "Трейлер EN"
+            ])
+
             for m in movies:
                 writer.writerow([
-                    m.get('type', 'Фільм'), # Експорт типу
-                    m['name'],
-                    m['genre'],
-                    m['year'],
-                    m['rating'],
-                    "Переглянуто" if m['status'] else "Не переглянуто",
-                    m.get('description', ''),
-                    m.get('trailers', {}).get('ua', ''),
-                    m.get('trailers', {}).get('en', '')
+                    m.get("type", ""),
+                    m.get("name", ""),
+                    m.get("genre", ""),
+                    m.get("year", ""),
+                    m.get("rating", ""),
+                    "Переглянуто"
+                    if m.get("status")
+                    else "Не переглянуто",
+                    m.get("description", ""),
+                    m.get("trailers", {}).get("ua", ""),
+                    m.get("trailers", {}).get("en", "")
                 ])
-        print(f"Дані успішно експортовано у файл {PURPLE}movies.csv{RESET}!")
+
+        print("Файл movies.csv успішно створено.")
+
     except Exception as e:
-        print(f"{RED}Помилка при експорті: {e}{RESET}")
+        print(f"Помилка експорту: {e}")
 
 def check_links(movies):
     """Перевіряє доступність посилань на трейлери з правильними заголовками."""
@@ -387,7 +485,7 @@ def check_links(movies):
             if url:
                 try:
                     # Додаємо headers=headers у запит
-                    response = requests.head(url, headers=headers, timeout=5)
+                    response = requests.head(url, headers=headers, timeout=3,  allow_redirects=True)
                     
                     # YouTube може повертати 405 (Method Not Allowed) для HEAD, 
                     # тому краще перевіряти статус < 400
@@ -456,21 +554,32 @@ def add_movie_by_api(movies):
     print(f"\nОб'єкт '{new_movie['name']}' ({type_str}) успішно додано!")
 
 def search_by_year_range(movies):
-    """Пошук фільмів/серіалів у вказаному діапазоні років."""
     try:
         start_year = int(input("Початковий рік: "))
         end_year = int(input("Кінцевий рік: "))
-        
-        found = [m for m in movies if start_year <= m['year'] <= end_year]
-        
+
+        if start_year > end_year:
+            start_year, end_year = end_year, start_year
+
+        found = [
+            m for m in movies
+            if start_year <= m['year'] <= end_year
+        ]
+
         if found:
             print(f"\nЗнайдено записів ({start_year}-{end_year}):")
+
             for m in sorted(found, key=lambda x: x['year']):
-                print(f"- {m['name']} ({m['year']}) [{m.get('type', 'Фільм')}]")
+                print(
+                    f"- {m['name']} "
+                    f"({m['year']}) "
+                    f"[{m.get('type', 'Фільм')}]"
+                )
         else:
             print("У цьому діапазоні нічого не знайдено.")
+
     except ValueError:
-        print("Помилка: введіть коректні роки числами.")
+        print("Помилка: введіть роки числами.")
 
 # ── Меню програми ─────────────────────────────────────────────
 
