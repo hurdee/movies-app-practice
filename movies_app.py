@@ -242,7 +242,7 @@ def list_movies(movies, filter_key=None, filter_val=None):
         print("Каталог порожній.")
         return
     
-    # Заголовок (Статус тепер 14)
+    # Заголовок
     print(f"\n{BOLD}{CYAN}{'№':<3} | {'Тип':<8} | {'Назва':<40} | {'Рік':<5} | {'Оцінка':<6} | {'Статус':<14} | {'Трейлер'}{RESET}")
     print("-" * 115) 
     
@@ -257,7 +257,6 @@ def list_movies(movies, filter_key=None, filter_val=None):
         score = m.get('rating', 0)
         score_color = GREEN if score >= 8 else (YELLOW if score >= 5 else RED)
         
-        # Статус тепер займає 14 символів
         status_text = "ПЕРЕГЛЯНУТО" if m.get('status') else "НЕ ПЕРЕГЛЯНУТО"
         status_color = GREEN if m.get('status') else RED
         
@@ -265,7 +264,7 @@ def list_movies(movies, filter_key=None, filter_val=None):
         has_trailer = "Є" if (trailers.get('ua') or trailers.get('en')) else "—"
         trailer_color = GREEN if has_trailer == "Є" else RED
         
-        # Виведення: назва 40 (залишено), Статус 14
+        # Виведення: назва 40 , Статус 14
         print(f"{YELLOW}{len(display_list):<3}{RESET} | "
               f"{m_type:<8} | "
               f"{m['name'][:39]:<40} | "
