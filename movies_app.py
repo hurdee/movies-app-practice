@@ -269,7 +269,7 @@ def list_movies(movies, filter_key=None, filter_val=None):
         print(f"{YELLOW}{len(display_list):<3}{RESET} | "
               f"{m_type:<8} | "
               f"{m['name'][:39]:<40} | "
-              f"{PURPLE}{m['year']:<5}{RESET} | "
+              f"{PURPLE}{m.get('year', 'N/A'):<5}{RESET} | "
               f"{score_color}{score:<6.1f}{RESET} | "
               f"{status_color}{status_text:<14}{RESET} | "
               f"{trailer_color}{has_trailer}{RESET}")
